@@ -7,4 +7,3 @@ resizing and applying filters.
 Usage:
     simg [ option ... ] dimention [ file ... ]
     simg 800x600 img.png
-
