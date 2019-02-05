@@ -63,7 +63,6 @@ func main() {
 		os.Exit(1)
 	}
 	flag.Parse()
-	fmt.Println(len(flag.Args()))
 	if len(flag.Args()) < 1 {
 		flag.Usage()
 	}
