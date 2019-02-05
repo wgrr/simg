@@ -102,8 +102,7 @@ func main() {
 			} else {
 				dest = os.Stdout
 			}
-			err = simg(dest, s)
-			if err != nil {
+			if err := simg(dest, s); err != nil {
 				fmt.Fprintf(os.Stderr, "simg: %v\n", err)
 				os.Exit(1)
 			}
