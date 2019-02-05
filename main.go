@@ -4,19 +4,54 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/png"
+	"io"
 	"os"
 	"strconv"
 	"strings"
 
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+
 	"github.com/disintegration/imaging"
+	_ "golang.org/x/image/tiff"
 )
 
-func simg(img image.Image, width, heigh int) error {
-	resized := imaging.Resize(img, width, heigh, imaging.Lanczos)
-	err := imaging.Save(resized, "/tmp/t.png", imaging.PNGCompressionLevel(png.BestCompression))
+type simage struct {
+	i             image.Image
+	width, height int
+	enc           imaging.Format
+	filter        imaging.ResampleFilter
+}
+
+func newsimage(img image.Image, enc string, w, h int, f imaging.ResampleFilter) simage {
+	var e imaging.Format
+	switch enc {
+	case "jpeg":
+		e = imaging.JPEG
+	case "png":
+		e = imaging.PNG
+	case "gif":
+		e = imaging.GIF
+	case "tiff":
+		e = imaging.TIFF
+	default:
+		e = imaging.JPEG
+	}
+	return simage{
+		i:      img,
+		width:  w,
+		height: h,
+		enc:    e,
+		filter: f,
+	}
+}
+
+func simg(w io.Writer, img simage) error {
+	resized := imaging.Resize(img.i, img.width, img.height, img.filter)
+	err := imaging.Encode(w, resized, img.enc)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	return nil
 }
@@ -28,26 +63,45 @@ func main() {
 		os.Exit(1)
 	}
 	flag.Parse()
-	if len(flag.Args()) < 2 {
+	fmt.Println(len(flag.Args()))
+	if len(flag.Args()) < 1 {
 		flag.Usage()
 	}
 	w, h, err := parseDementions(flag.Arg(0))
-	fmt.Println(w, h,err)
-	return
-	if len(flag.Args()) > 2 {
-
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+		os.Exit(1)
+	}
+	if len(flag.Args()) >= 2 {
+		for _, v := range flag.Args()[1:] {
+			r, err := os.Open(v)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+				os.Exit(1)
+			}
+			img, f, err := image.Decode(r)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+				os.Exit(1)
+			}
+			s := newsimage(img, f, w, h, imaging.Lanczos)
+			err = simg(os.Stdout, s)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	} else {
 		// TODO(wgr): implement a reader that understands multiple images comming
 		// in from a data stream.
-		img, _, err := image.Decode(os.Stdin)
-		_ = img
-		_ = err
+		img, f, err := image.Decode(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+			os.Exit(1)
+		}
+		s := newsimage(img, f, w, h, imaging.Lanczos)
+		err = simg(os.Stdout, s)
 	}
-	r, err := imaging.Open("/tmp/test.png")
-	if err != nil {
-		panic(err)
-	}
-	simg(r, w, h)
 }
 
 func parseDementions(dim string) (width int, height int, err error) {
