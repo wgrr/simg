@@ -88,6 +88,16 @@ func main() {
 			var s = newsimage(img, f, w, h, imaging.Lanczos)
 			var dest io.Writer
 			if *write {
+				// TODO(wgr): if next errs fail, restore r instead
+				// of leaving it blank
+				if err := r.Truncate(0); err != nil {
+					fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+					os.Exit(1)
+				}
+				if _, err := r.Seek(0, 0); err != nil {
+					fmt.Fprintf(os.Stderr, "simg: %v\n", err)
+					os.Exit(1)
+				}
 				dest = r
 			} else {
 				dest = os.Stdout
